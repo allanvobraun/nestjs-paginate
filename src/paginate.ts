@@ -256,7 +256,12 @@ export async function paginate<T extends ObjectLiteral>(
 
     if (config.relations?.length) {
         config.relations.forEach((relation) => {
-            queryBuilder.leftJoinAndSelect(`${queryBuilder.alias}.${relation}`, `${queryBuilder.alias}_${relation}`)
+            if (!relation.includes('.')) {
+                return queryBuilder.leftJoinAndSelect(`${queryBuilder.alias}.${relation}`, `${queryBuilder.alias}_${relation}`)
+            }
+            const [main, sub] = relation.split('.')
+            const mainAlias = `${queryBuilder.alias}_${main}`
+            queryBuilder.leftJoinAndSelect(`${mainAlias}.${sub}`, `${main}_${sub}`)
         })
     }
 
