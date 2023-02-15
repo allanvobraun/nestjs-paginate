@@ -20,19 +20,12 @@ export type Column<T, D extends number = 2> = [D] extends [never]
       }[keyof T]
     : ''
 
-// export type RelationColumn<T> = Extract<
-//     Column<T>,
-//     {
-//         [K in Column<T>]: K extends `${infer R}.${string}` ? R : never
-//     }[Column<T>]
-// >
-
-export type RelationColumn<ObjectType extends object> =
-    {[Key in keyof ObjectType & (string | number)]: ObjectType[Key] extends object
-        ? `${Key}` | `${Key}.${RelationColumn<ObjectType[Key]>}`
-        : never
-    }[keyof ObjectType & (string | number)];
-
+export type RelationColumn<T> = Extract<
+    Column<T>,
+    {
+        [K in Column<T>]: K extends `${infer R}.${string}` ? R : never
+    }[Column<T>]
+>
 
 export type Order<T> = [Column<T>, 'ASC' | 'DESC']
 export type SortBy<T> = Order<T>[]
