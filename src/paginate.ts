@@ -177,7 +177,11 @@ export async function paginate<T extends ObjectLiteral>(
                     )
 
                     if (typeof relationSchema === 'object') {
-                        createQueryBuilderRelations(relationName, relationSchema, `${prefix}_${relationName}`)
+                        if(!alias) {
+                            createQueryBuilderRelations(relationName, relationSchema, `${prefix}_${relationName}`);
+                            return;
+                        }
+                        createQueryBuilderRelations(relationName, relationSchema, `${alias}_${relationName}`);
                     }
                 })
             }
