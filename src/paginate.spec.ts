@@ -1937,6 +1937,82 @@ describe('paginate', () => {
         })
     })
 
+
+    it('should return the specified relationship columns only (object select)', async () => {
+        const config: PaginateConfig<CatEntity> = {
+            sortableColumns: ['name'],
+            select: {
+                id: true,
+                name: true,
+                toys: {
+                    name: true
+                }
+            },
+            relations: ['toys'],
+        }
+        const query: PaginateQuery = {
+            path: '',
+        }
+
+        const result = await paginate<CatEntity>(query, catRepo, config)
+
+        result.data.forEach((cat) => {
+            expect(cat.id).toBeDefined()
+            expect(cat.name).toBeDefined()
+            expect(cat.color).not.toBeDefined()
+
+            cat.toys.map((toy) => {
+                expect(toy.name).toBeDefined()
+                expect(toy.id).not.toBeDefined()
+            })
+        })
+    })
+
+
+    it('should return the specified relationship columns only (object select 3 nested)', async () => {
+        const config: PaginateConfig<CatEntity> = {
+            sortableColumns: ['name'],
+            select: {
+                id: true, // root
+                name: true,
+                home: {
+                    id: true,
+                    name: true, //root // paret = home
+                    pillows: { // home
+                        id: true,
+                        color: true
+                    }
+                }
+            },
+            relations: {
+                home: {
+                    pillows: true
+                }
+            },
+        }
+        const query: PaginateQuery = {
+            path: '',
+        }
+
+        const result = await paginate<CatEntity>(query, catRepo, config)
+
+        console.log(result.data)
+        result.data.forEach((cat) => {
+            expect(cat.id).toBeDefined()
+            expect(cat.name).toBeDefined()
+            expect(cat.color).not.toBeDefined()
+
+            if (cat.id === 1 || cat.id === 2) {
+                expect(cat.home.id).toBeDefined()
+                expect(cat.home.name).toBeDefined()
+                cat.home.pillows.forEach((pillow) => {
+                    expect(pillow.id).toBeDefined()
+                    expect(pillow.color).toBeDefined()
+                })
+            }
+        })
+    })
+
     it('should return selected columns', async () => {
         const config: PaginateConfig<CatEntity> = {
             sortableColumns: ['id', 'name'],

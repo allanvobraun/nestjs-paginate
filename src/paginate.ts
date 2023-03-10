@@ -1,30 +1,32 @@
 import {
+    Brackets,
+    FindOptionsRelations,
+    FindOptionsSelect,
+    FindOptionsWhere,
+    ObjectLiteral,
     Repository,
     SelectQueryBuilder,
-    Brackets,
-    FindOptionsWhere,
-    FindOptionsRelations,
-    ObjectLiteral,
 } from 'typeorm'
-import { PaginateQuery } from './decorator'
-import { ServiceUnavailableException, Logger } from '@nestjs/common'
-import { mapKeys } from 'lodash'
-import { stringify } from 'querystring'
-import { WherePredicateOperator } from 'typeorm/query-builder/WhereClause'
+import {PaginateQuery} from './decorator'
+import {Logger, ServiceUnavailableException} from '@nestjs/common'
+import {mapKeys} from 'lodash'
+import {stringify} from 'querystring'
+import {WherePredicateOperator} from 'typeorm/query-builder/WhereClause'
 import {
-    checkIsRelation,
     checkIsEmbedded,
+    checkIsRelation,
     Column,
     extractVirtualProperty,
     fixColumnAlias,
     getPropertiesByColumnName,
+    isFindOneOptionsSelect,
     Order,
     positiveNumberOrDefault,
     RelationColumn,
     SortBy,
 } from './helper'
-import { FilterOperator, FilterSuffix } from './operator'
-import { addFilter } from './filter'
+import {FilterOperator, FilterSuffix} from './operator'
+import {addFilter} from './filter'
 
 const logger: Logger = new Logger('nestjs-paginate')
 
@@ -54,7 +56,7 @@ export interface PaginateConfig<T> {
     sortableColumns: Column<T>[]
     nullSort?: 'first' | 'last'
     searchableColumns?: Column<T>[]
-    select?: Column<T>[]
+    select?: FindOptionsSelect<T> | Column<T>[]
     maxLimit?: number
     defaultSortBy?: SortBy<T>
     defaultLimit?: number
@@ -70,6 +72,49 @@ export interface PaginateConfig<T> {
 export const DEFAULT_MAX_LIMIT = 100
 export const DEFAULT_LIMIT = 20
 export const NO_PAGINATION = 0
+
+
+function getSelect<T>(query: PaginateQuery, queryBuilder: SelectQueryBuilder<T>, config: PaginateConfig<T>): string[] {
+    const selectParams = config.select || query.select
+    if (Array.isArray(selectParams)) {
+        if (selectParams?.length > 0) {
+            return selectParams.reduce((cols, currentCol) => {
+                if (query.select?.includes(currentCol) ?? true) {
+                    const columnProperties = getPropertiesByColumnName(currentCol)
+                    const isRelation = checkIsRelation(queryBuilder, columnProperties.propertyPath)
+                    // here we can avoid to manually fix and add the query of virtual columns
+                    cols.push(fixColumnAlias(columnProperties, queryBuilder.alias, isRelation))
+                }
+                return cols
+            }, []);
+        }
+        return [];
+    } else if (isFindOneOptionsSelect<T>(config.select)) {
+        return getSelectRecursion(config.select, queryBuilder.alias)
+    }
+}
+
+
+function getSelectRecursion<T>(select: FindOptionsSelect<T>, alias: string, parent?: string): string[] {
+    const selects: string[] = [];
+    const isRelation = !!parent;
+    for (const [key, value] of Object.entries(select)) {
+        if (value === true) {
+            selects.push(fixColumnAlias({
+                propertyPath: parent,
+                propertyName: key
+            }, alias, isRelation))
+            continue;
+        }
+
+        if (isFindOneOptionsSelect(value)) {
+            //__root
+            selects.push(...getSelectRecursion(value, alias,  parent ? `${parent}_${key}` : key))
+        }
+    }
+    return selects;
+}
+
 
 export async function paginate<T extends ObjectLiteral>(
     query: PaginateQuery,
@@ -196,7 +241,7 @@ export async function paginate<T extends ObjectLiteral>(
 
     for (const order of sortBy) {
         const columnProperties = getPropertiesByColumnName(order[0])
-        const { isVirtualProperty } = extractVirtualProperty(queryBuilder, columnProperties)
+        const {isVirtualProperty} = extractVirtualProperty(queryBuilder, columnProperties)
         const isRelation = checkIsRelation(queryBuilder, columnProperties.propertyPath)
         const isEmbeded = checkIsEmbedded(queryBuilder, columnProperties.propertyPath)
         const alias = fixColumnAlias(columnProperties, queryBuilder.alias, isRelation, isVirtualProperty, isEmbeded)
@@ -205,19 +250,7 @@ export async function paginate<T extends ObjectLiteral>(
 
     // When we partial select the columns (main or relation) we must add the primary key column otherwise
     // typeorm will not be able to map the result TODO: write it in the docs
-    const selectParams = config.select || query.select
-    if (selectParams?.length > 0) {
-        const cols: string[] = selectParams.reduce((cols, currentCol) => {
-            if (query.select?.includes(currentCol) ?? true) {
-                const columnProperties = getPropertiesByColumnName(currentCol)
-                const isRelation = checkIsRelation(queryBuilder, columnProperties.propertyPath)
-                // here we can avoid to manually fix and add the query of virtual columns
-                cols.push(fixColumnAlias(columnProperties, queryBuilder.alias, isRelation))
-            }
-            return cols
-        }, [])
-        queryBuilder.select(cols)
-    }
+    queryBuilder.select(getSelect(query, queryBuilder, config));
 
     if (config.where) {
         queryBuilder.andWhere(new Brackets((qb) => qb.andWhere(config.where)))

@@ -1,5 +1,5 @@
-import { SelectQueryBuilder } from 'typeorm'
-import { ColumnMetadata } from 'typeorm/metadata/ColumnMetadata'
+import {FindOptionsSelect, SelectQueryBuilder} from 'typeorm'
+import {ColumnMetadata} from 'typeorm/metadata/ColumnMetadata'
 
 type Join<K, P> = K extends string ? (P extends string ? `${K}${'' extends P ? '' : '.'}${P}` : never) : never
 
@@ -43,6 +43,11 @@ export function getPropertiesByColumnName(column: string): ColumnProperties {
               propertyName: propertyPath.slice(1).join('.'), // the join is in case of an embedded entity
           }
         : { propertyName: propertyPath[0] }
+}
+
+
+export function isFindOneOptionsSelect<T>(select: unknown): select is FindOptionsSelect<T> {
+    return select && typeof select === 'object' && !Array.isArray(select);
 }
 
 export function extractVirtualProperty(
