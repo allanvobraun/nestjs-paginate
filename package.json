@@ -1,6 +1,6 @@
 {
   "name": "@chavesnamao2022/nestjs-paginate",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "author": "Philipp Petzold <ppetzold@protonmail.com>",
   "license": "MIT",
   "main": "lib/index.js",
