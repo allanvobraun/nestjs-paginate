@@ -1937,6 +1937,31 @@ describe('paginate', () => {
         })
     })
 
+    it('should return the specified neested relationship columns onlys', async () => {
+        const config: PaginateConfig<CatEntity> = {
+            select: ['id', 'home.id', 'home.pillows.id'],
+            relations: { home: { pillows: true } },
+            sortableColumns: ['id', 'name'],
+        }
+        const query: PaginateQuery = {
+            path: '',
+        }
+
+        const result = await paginate<CatEntity>(query, catRepo, config)
+
+        result.data.forEach((cat) => {
+            expect(cat.id).toBeDefined()
+            expect(cat.name).not.toBeDefined()
+            expect(cat.home.id).toBeDefined()
+            expect(cat.home.name).not.toBeDefined()
+            expect(cat.home.countCat).not.toBeDefined()
+
+            cat.home.pillows.forEach((pillow) => {
+                expect(pillow.id).toBeDefined()
+                expect(pillow.color).not.toBeDefined()
+            })
+        })
+    })
 
     it('should return the specified relationship columns only (object select)', async () => {
         const config: PaginateConfig<CatEntity> = {
@@ -1945,8 +1970,8 @@ describe('paginate', () => {
                 id: true,
                 name: true,
                 toys: {
-                    name: true
-                }
+                    name: true,
+                },
             },
             relations: ['toys'],
         }
@@ -1968,7 +1993,6 @@ describe('paginate', () => {
         })
     })
 
-
     it('should return the specified relationship columns only (object select 3 nested)', async () => {
         const config: PaginateConfig<CatEntity> = {
             sortableColumns: ['name'],
@@ -1978,16 +2002,17 @@ describe('paginate', () => {
                 home: {
                     id: true,
                     name: true, //root // paret = home
-                    pillows: { // home
+                    pillows: {
+                        // home
                         id: true,
-                        color: true
-                    }
-                }
+                        color: true,
+                    },
+                },
             },
             relations: {
                 home: {
-                    pillows: true
-                }
+                    pillows: true,
+                },
             },
         }
         const query: PaginateQuery = {
